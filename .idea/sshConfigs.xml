@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="192.168.99.250" id="bdc39c2d-4147-402e-b28a-f7f8a2108d18" port="22" customName="emax" nameFormat="CUSTOM" username="clever" useOpenSSHConfig="true">
+        <option name="customName" value="emax" />
+      </sshConfig>
+    </configs>
+  </component>
+</project>

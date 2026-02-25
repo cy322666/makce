@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="1d460a10-c3e4-41f9-8a0a-2ba505cb2791" name="emax" url="http://192.168.99.250">
+        <fileTransfer accessType="SFTP" host="192.168.99.250" port="22" sshConfigId="bdc39c2d-4147-402e-b28a-f7f8a2108d18" sshConfig="emax">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
