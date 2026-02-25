@@ -6,6 +6,10 @@ use Filament\Schemas\Components\Utilities\Get;
 
 class OrderCalculationInput
 {
+    /**
+     * DTO входа калькулятора.
+     * Нужен, чтобы не смешивать Filament Get и бизнес-логику расчета.
+     */
     public function __construct(
         public readonly ?int $sizeId,
         public readonly int $paperCirculation,
@@ -28,6 +32,7 @@ class OrderCalculationInput
 
     public static function fromGet(Get $get): self
     {
+        // Нормализуем все поля формы в стабильные типы для доменного сервиса.
         return new self(
             sizeId: self::intOrNull($get('size_id')),
             paperCirculation: self::intOrZero($get('paper_circulation')),
@@ -50,6 +55,7 @@ class OrderCalculationInput
 
     public static function fromArray(array $data): self
     {
+        // Отдельный конструктор для тестов и CLI-использования без Filament.
         return new self(
             sizeId: self::intOrNull($data['size_id'] ?? null),
             paperCirculation: self::intOrZero($data['paper_circulation'] ?? null),

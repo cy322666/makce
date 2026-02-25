@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
+use Illuminate\Support\HtmlString;
 
 class OrderForm
 {
@@ -76,216 +77,74 @@ class OrderForm
     public static function getBaseResultComponents(): array
     {
         return [
-
-            Section::make()
-                ->schema([
-
-                    TextEntry::make('result_1_circulation')
-                        ->label('Итого за единицу')
-                        ->dehydrated()
-                        ->weight(FontWeight::Bold)
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn (Get $get): ?string => $get('paper_circulation') && $get('result_circulation') ? $get('result_circulation') / $get('paper_circulation') : 0)
-                        ->size(TextSize::Large),
-
-                    TextEntry::make('result_circulation')
-                        ->label('Итого за тираж')
-                        ->dehydrated()
-                        ->weight(FontWeight::Bold)
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn (Get $get): ?string => (string) static::metric('result_circulation', $get))
-                        ->size(TextSize::Large),
-                ]),
-
-            Section::make()
-                ->schema([
-                    TextEntry::make('result_materials')
-                        ->label('Итого на все материалы')
-                        ->dehydrated()
-                        ->weight(FontWeight::Bold)
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn (Get $get): ?string => (string) static::metric('result_materials', $get))
-                        ->size(TextSize::Large),
-
-                    TextEntry::make('result_works')
-                        ->label('Итого на все работы')
-                        ->dehydrated()
-                        ->weight(FontWeight::Bold)
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn (Get $get): ?string => (string) static::metric('result_works', $get))
-                        ->size(TextSize::Large),
-                ]),
-
-            TextEntry::make('group_name')
-                ->label('Группа формы')
+            TextEntry::make('result_materials')
+                ->label('Стоимость материалов')
                 ->dehydrated()
                 ->weight(FontWeight::Bold)
                 ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('group_name', $get))
+                ->state(fn (Get $get): ?string => (string) static::metric('result_materials', $get))
                 ->size(TextSize::Large),
 
-            TextEntry::make('markup')//наценка //TODO не участвует в сумме
-                ->label('Наценка %')
+            TextEntry::make('sale_1_page')
+                ->label('Стоимость 1 листа')
                 ->dehydrated()
                 ->weight(FontWeight::Bold)
                 ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('markup', $get))
+                ->state(fn (Get $get): ?string => (string) static::metric('sale_1_page', $get))
                 ->size(TextSize::Large),
 
-            TextEntry::make('size_name')
-                ->label('Номер формы')
+            TextEntry::make('result_circulation')
+                ->label('Стоимость всего')
                 ->dehydrated()
                 ->weight(FontWeight::Bold)
                 ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('size_name', $get))
+                ->state(fn (Get $get): ?string => (string) static::metric('result_circulation', $get))
                 ->size(TextSize::Large),
 
-            TextEntry::make('size_format')
-                ->label('Формат листа печати')
-                ->placeholder('На каком формате печатаем')
+            TextEntry::make('result_works')
+                ->label('Стоимость только работы')
                 ->dehydrated()
                 ->weight(FontWeight::Bold)
                 ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('size_format', $get))
+                ->state(fn (Get $get): ?string => (string) static::metric('result_works', $get))
                 ->size(TextSize::Large),
 
-            TextEntry::make('group_info')
-                ->label('Составляющие сборки')
+            TextEntry::make('debug_summary')
+                ->label('[Отладка] Сводка')
                 ->dehydrated()
-//                ->weight(FontWeight::Bold)
                 ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('group_info', $get))
+                ->state(fn (Get $get) => static::metric('debug_summary', $get))
+                ->formatStateUsing(fn (?string $state) => new HtmlString(nl2br(e($state ?? ''))))
+                ->html()
+                ->columnSpanFull(),
+
+            TextEntry::make('debug_nodes')
+                ->label('[Отладка] Основные узлы')
+                ->dehydrated()
+                ->fontFamily(FontFamily::Mono)
+                ->state(fn (Get $get) => static::metric('debug_nodes', $get))
+                ->formatStateUsing(fn (?string $state) => new HtmlString(nl2br(e($state ?? ''))))
+                ->html()
+                ->columnSpanFull(),
+
+            TextEntry::make('debug_formulas')
+                ->label('[Отладка] Ключевые формулы')
+                ->dehydrated()
+                ->fontFamily(FontFamily::Mono)
+                ->state(fn (Get $get) => static::metric('debug_formulas', $get))
+                ->formatStateUsing(fn (?string $state) => new HtmlString(nl2br(e($state ?? ''))))
+                ->html()
+                ->columnSpanFull(),
+
+            TextEntry::make('debug_inputs')
+                ->label('[Отладка] Входные параметры')
+                ->dehydrated()
+                ->fontFamily(FontFamily::Mono)
+                ->state(fn (Get $get) => static::metric('debug_inputs', $get))
+                ->formatStateUsing(fn (?string $state) => new HtmlString(nl2br(e($state ?? ''))))
+                ->html()
+                ->columnSpanFull()
                 ->size(TextSize::Large),
-
-            TextEntry::make('paper_result')
-                ->label('Итог на бумагу')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('paper_result', $get))
-                ->size(TextSize::Large),
-
-            //общая стоиомсть сборки тиража
-            TextEntry::make('assembly_result_circulation')
-                ->label('Итого за сборку')
-                ->dehydrated()
-                ->reactive()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?int => (int) static::metric('assembly_result_circulation', $get))
-                ->size(TextSize::Large),
-
-            TextEntry::make('print_prebuild')
-                ->label('Листов на приладку печати')
-                ->dehydrated()
-                ->reactive()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get) => static::metric('print_prebuild', $get))
-                ->size(TextSize::Large),
-
-            TextEntry::make('paper_pack_work')
-                ->label('Пакетов в работу')
-                ->state(fn (Get $get) => round((float) static::metric('paper_pack_work', $get)))
-                ->fontFamily(FontFamily::Mono)
-                ->size(TextSize::Large)
-                ->dehydrated(),
-
-            TextEntry::make('lamination_result')
-                ->label('Ламинация (с работой)')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get) => static::metric('lamination_result', $get))
-                ->size(TextSize::Large),
-
-            //-----
-
-            TextEntry::make('count_paper')
-                ->label('Листов в работу')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get) => static::metric('count_paper', $get))
-                ->size(TextSize::Large),
-
-            TextEntry::make('packages_result')
-                ->label('Сумма за упаковку')
-                ->state(fn (Get $get): ?int => (int) static::metric('packages_result', $get))
-                ->size(TextSize::Large)
-                ->fontFamily(FontFamily::Mono)
-                ->dehydrated(),
-
-//            TextEntry::make('print_sale_cutting')
-//                ->label('Сумма за резку')
-//                ->state(fn (Get $get): ?string => static::calcBase('print_sale_cutting', $get))
-//                ->size(TextSize::Large)
-//                ->fontFamily(FontFamily::Mono)
-//                ->dehydrated(),
-
-            TextEntry::make('print_sale_result')
-                ->label('Стоимость печати')
-                ->dehydrated()
-                ->state(fn (Get $get): ?string => (string) static::metric('print_sale_result', $get))
-                ->size(TextSize::Large)
-                ->fontFamily(FontFamily::Mono)
-                ->dehydrated(),
-
-            TextEntry::make('post_print_sale')
-                ->label('Стоимость пп печати (уф л)')
-                ->state(fn (Get $get): ?string => (string) static::metric('post_print_sale', $get))
-                ->size(TextSize::Large)
-                ->fontFamily(FontFamily::Mono)
-                ->dehydrated(),
-
-            //ошибка
-//            TextEntry::make('panton_result')
-//                ->label('Итого за пантоны')
-//                ->state(fn (Get $get): ?string => static::calcBase('panton_result', $get))
-//                ->size(TextSize::Large)
-//                ->fontFamily(FontFamily::Mono)
-//                ->dehydrated(),
-
-            TextEntry::make('assembly_result')
-                ->label('Итого за резку')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?int => (int) static::metric('assembly_result', $get))
-                ->size(TextSize::Large),
-
-            //стоимость материалов для ручек
-            TextEntry::make('handle_result')
-                ->label('Итого за ручки')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get) => static::metric('handle_result', $get))
-                ->size(TextSize::Large),
-
-            TextEntry::make('felling_result')
-                ->label('Итого за вырубку')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->fontFamily(FontFamily::Mono)
-                ->state(fn (Get $get): ?string => (string) static::metric('felling_result', $get))
-                ->size(TextSize::Large),
-
-            TextEntry::make('print_pages_circulation')
-                ->label('Листов на печать тиража (без приладок и тд')
-                ->dehydrated()
-                ->weight(FontWeight::Bold)
-                ->state(fn (Get $get) => static::metric('print_pages_circulation', $get))
-                ->fontFamily(FontFamily::Mono)
-                ->default(1)
-                ->size(TextSize::Large),
-
-//            TextEntry::make('print_sale_plates')
-//                ->label('Стоимость пластин')
-//                ->dehydrated()
-//                ->size(TextSize::Large)
-//                ->fontFamily(FontFamily::Mono)
-//                ->state(fn (Get $get): ?string => static::calcBase('print_sale_plates', $get))
         ];
     }
 
@@ -395,15 +254,16 @@ class OrderForm
 
                     Select::make('type_paper')
                         ->label('Тип бумаги')
+                        ->reactive()
                         ->options(Category::getChildrens('Тип бумаги')->pluck('name', 'id')->toArray()),
 
-                    TextEntry::make('sale_1_page')
-                        ->label('Стоимость 1 листа (база)')
-                        ->dehydrated()
-                        ->weight(FontWeight::Bold)
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn (Get $get) => static::metric('sale_1_page', $get))
-                        ->size(TextSize::Large),
+//                    TextEntry::make('sale_1_page')
+//                        ->label('Стоимость 1 листа (база)')
+//                        ->dehydrated()
+//                        ->weight(FontWeight::Bold)
+//                        ->fontFamily(FontFamily::Mono)
+//                        ->state(fn (Get $get) => static::metric('sale_1_page', $get))
+//                        ->size(TextSize::Large),
 
                     Select::make('type_order')
                         ->label('Тип заказа')
@@ -413,13 +273,13 @@ class OrderForm
                             'agency' => 'Агенство',//75
                         ]),
 
-                    TextEntry::make('sale_1_channel')
-                        ->label('Стоимость 1м канала')
-                        ->dehydrated()
-                        ->weight(FontWeight::Bold)
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn (Get $get) => static::metric('sale_1_channel', $get))
-                        ->size(TextSize::Large),
+//                    TextEntry::make('sale_1_channel')
+//                        ->label('Стоимость 1м канала')
+//                        ->dehydrated()
+//                        ->weight(FontWeight::Bold)
+//                        ->fontFamily(FontFamily::Mono)
+//                        ->state(fn (Get $get) => static::metric('sale_1_channel', $get))
+//                        ->size(TextSize::Large),
 
                     CheckboxList::make('print_options')
                         ->label('Основное')
@@ -572,11 +432,13 @@ class OrderForm
 
     private static function metric(string $key, Get $get): mixed
     {
+        // Единая точка получения метрики для UI: все поля идут через один расчет.
         return static::calculate($get)->value($key);
     }
 
     private static function calculate(Get $get): \App\Domain\Orders\OrderCalculationResult
     {
+        // Форма больше не считает сама: только передает вход и получает результат.
         /** @var OrderCalculator $calculator */
         $calculator = app(OrderCalculator::class);
 

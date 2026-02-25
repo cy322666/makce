@@ -1,15 +1,18 @@
 <?php
 
 return [
+    // Наценка в процентах по типу клиента.
     'markup_percent' => [
         'direct' => 65,
         'agency' => 75,
     ],
 
+    // Технологический запас бумаги.
     'paper' => [
         'waste_percent' => 108,
     ],
 
+    // Константы для расчетов приладок.
     'prebuild' => [
         'offset_per_color_sheets' => 50,
         'silk_per_color_sheets' => 10,
@@ -18,12 +21,14 @@ return [
         'felling_step' => 2000,
     ],
 
+    // Константы для резки.
     'cutting' => [
         'minimum_price' => 200,
         'step_quantity' => 1000,
         'step_price' => 200,
     ],
 
+    // ID продуктов со служебными ценами.
     'products' => [
         'felling_blow' => 1,
         'felling_prebuild' => 2,
@@ -33,17 +38,20 @@ return [
         'package_box' => 32,
     ],
 
+    // Как маппим тип бумаги на префикс товарного slug.
     'paper_slug_map' => [
         'melovannaia' => 'bumaga-mel',
         'karton' => 'bumaga-karton',
     ],
 
+    // Как маппим размер листа на хвост товарного slug бумаги.
     'size_paper_suffix_map' => [
         '720*1040' => '72104',
         '700*1000' => '72104',
         '620*940' => '6294',
     ],
 
+    // Доплаты в УФ-лаке.
     'uv_lac' => [
         'drying_per_sheet' => [
             'A1' => 5,
@@ -57,12 +65,14 @@ return [
         ],
     ],
 
+    // Стоимость способа крепления ручки.
     'bracing_handle_prices' => [
         'klipsa' => 2,
         'uzel' => 2,
         'vkleika' => 2,
     ],
 
+    // Сколько изделий с листа A2 по типу формы.
     'count_per_a2_sheet' => [
         'A1' => 1,
         'A2' => 2,
@@ -72,6 +82,7 @@ return [
         'A6' => 16,
     ],
 
+    // Дополнительный клей по формату.
     'glue_per_format' => [
         'A1' => 2,
         'A2' => 1.5,
