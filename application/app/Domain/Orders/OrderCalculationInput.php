@@ -13,7 +13,7 @@ class OrderCalculationInput
     public function __construct(
         public readonly ?int $sizeId,
         public readonly int $paperCirculation,
-        public readonly ?int $typePaperId,
+        public readonly ?int $paperPriceId,
         public readonly ?string $typeOrder,
         public readonly array $printOptions,
         public readonly array $printType,
@@ -36,7 +36,7 @@ class OrderCalculationInput
         return new self(
             sizeId: self::intOrNull($get('size_id')),
             paperCirculation: self::intOrZero($get('paper_circulation')),
-            typePaperId: self::intOrNull($get('type_paper')),
+            paperPriceId: self::intOrNull($get('type_paper')),
             typeOrder: self::stringOrNull($get('type_order')),
             printOptions: self::arrayOrEmpty($get('print_options')),
             printType: self::arrayOrEmpty($get('print_type')),
@@ -59,7 +59,7 @@ class OrderCalculationInput
         return new self(
             sizeId: self::intOrNull($data['size_id'] ?? null),
             paperCirculation: self::intOrZero($data['paper_circulation'] ?? null),
-            typePaperId: self::intOrNull($data['type_paper'] ?? null),
+            paperPriceId: self::intOrNull($data['type_paper'] ?? null),
             typeOrder: self::stringOrNull($data['type_order'] ?? null),
             printOptions: self::arrayOrEmpty($data['print_options'] ?? []),
             printType: self::arrayOrEmpty($data['print_type'] ?? []),

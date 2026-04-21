@@ -5,10 +5,10 @@ namespace App\Domain\Orders;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\LacPrice;
+use App\Models\PaperPrice;
 use App\Models\Ofset;
 use App\Models\Product;
 use App\Models\Size;
-
 class OrderCalculator
 {
     /**
@@ -29,10 +29,10 @@ class OrderCalculator
         $sale1Page = $this->resolveSale1Paper($input, $size);
 
         // Блок бумаги: тиражные листы/приладки/кол-во листов в работу.
-        $printPrebuild = $this->calculatePrintPrebuild($input);
-        $paperPackWork = $this->calculatePaperPackWork($input, $printPrebuild);
-        $countPaper = $this->calculateCountPaper($input, $size);
         $printPagesCirculation = $this->calculatePrintPagesCirculation($input, $size);
+        $printPrebuild = $this->calculatePrintPrebuild($input);
+        $countPaper = $this->calculateCountPaper($printPagesCirculation);
+        $paperPackWork = $this->calculatePaperPackWork($countPaper, $printPrebuild);
 
         $paperResult = $this->calculatePaperResult($paperPackWork, $sale1Page, $size);
 
@@ -42,7 +42,7 @@ class OrderCalculator
         $laminationData = $this->calculateLamination($input, $size, $sizeFormat, $printPagesCirculation);
         $fellingData = $this->calculateFelling($input, $size, $printPagesCirculation, $sale1Channel);
         $assemblyResult = $this->calculateCutting($input);
-        $assemblyResultCirculation = $this->calculateAssemblyCirculation($input, $size, $group);
+        $assemblyBreakdown = $this->calculateAssemblyBreakdown($input, $size, $group);
         $handleData = $this->calculateHandle($input, $size, $group);
         $packagesResult = $this->calculatePackages($input, $size);
 
@@ -72,9 +72,29 @@ class OrderCalculator
                 'materials' => $handleData['materials'],
                 'works' => $handleData['works'],
             ],
-            'assembly' => [
+            'assembly_gluing' => [
                 'materials' => 0.0,
-                'works' => $assemblyResult + $assemblyResultCirculation,
+                'works' => $assemblyBreakdown['gluing'],
+            ],
+            'assembly_cord_cutting' => [
+                'materials' => 0.0,
+                'works' => $assemblyBreakdown['cord_cutting'],
+            ],
+            'assembly_insert' => [
+                'materials' => 0.0,
+                'works' => $assemblyBreakdown['insert'],
+            ],
+            'assembly_sleeve' => [
+                'materials' => 0.0,
+                'works' => $assemblyBreakdown['sleeve'],
+            ],
+            'assembly_glue_extra' => [
+                'materials' => 0.0,
+                'works' => $assemblyBreakdown['glue_extra'],
+            ],
+            'cutting' => [
+                'materials' => 0.0,
+                'works' => $assemblyResult,
             ],
             'packaging' => [
                 'materials' => $packagesResult,
@@ -111,7 +131,7 @@ class OrderCalculator
             laminationData: $laminationData,
             fellingData: $fellingData,
             assemblyResult: $assemblyResult,
-            assemblyResultCirculation: $assemblyResultCirculation,
+            assemblyBreakdown: $assemblyBreakdown,
             handleData: $handleData,
             packagesResult: $packagesResult,
             resultMaterials: $resultMaterials,
@@ -145,7 +165,12 @@ class OrderCalculator
 
             'felling_result' => round($fellingData['total'], 2),
             'assembly_result' => round($assemblyResult, 2),
-            'assembly_result_circulation' => round($assemblyResultCirculation, 2),
+            'assembly_result_circulation' => round($assemblyBreakdown['total'], 2),
+            'assembly_gluing_result' => round($assemblyBreakdown['gluing'], 2),
+            'assembly_cord_cutting_result' => round($assemblyBreakdown['cord_cutting'], 2),
+            'assembly_insert_result' => round($assemblyBreakdown['insert'], 2),
+            'assembly_sleeve_result' => round($assemblyBreakdown['sleeve'], 2),
+            'assembly_glue_extra_result' => round($assemblyBreakdown['glue_extra'], 2),
             'handle_result' => round($handleData['total'], 2),
             'packages_result' => round($packagesResult, 2),
 
@@ -168,43 +193,36 @@ class OrderCalculator
         return (float) config("calculator.markup_percent.{$typeOrder}", 0);
     }
 
-    private function calculatePaperPackWork(OrderCalculationInput $input, int $printPrebuild): float
+    private function calculatePaperPackWork(float $countPaper, int $printPrebuild): float
     {
-        if ($input->paperCirculation <= 0) {
+        if ($countPaper <= 0) {
             return 0;
         }
 
-        $wastePercent = (float) config('calculator.paper.waste_percent', 108);
-
-        // Пакетов в работу = тираж с технологическим запасом + 1/2 листов на приладку печати.
-        return (($input->paperCirculation / 100) * $wastePercent) + ($printPrebuild / 2);
+        // Листов в работу = листы тиража с запасом + 1/2 листов на приладку печати.
+        return $countPaper + ($printPrebuild / 2);
     }
 
-    private function calculateCountPaper(OrderCalculationInput $input, ?Size $size): float
+    private function calculateCountPaper(float $printPagesCirculation): float
     {
-        if (!$size || $input->paperCirculation <= 0) {
+        if ($printPagesCirculation <= 0) {
             return 0;
         }
 
-        $countToPage = (float) (config("calculator.count_per_a2_sheet.{$size->type}") ?? 0);
+        $wastePercent = (float) config('calculator.paper.waste_percent', 110);
 
-        if ($countToPage <= 0) {
-            return 0;
-        }
-
-        $wastePercent = (float) config('calculator.paper.waste_percent', 108);
-
-        return ($input->paperCirculation / 100) * $wastePercent / $countToPage;
+        // Сначала переводим тираж в листы печати, потом добавляем технологический запас.
+        return $printPagesCirculation * ($wastePercent / 100);
     }
 
     private function calculatePaperResult(float $paperPackWork, float $sale1Page, ?Size $size): float
     {
-        if (!$size || !$sale1Page || !$size->count_1) {
+        if (!$size || !$sale1Page) {
             return 0;
         }
 
-        // Переводим «пакеты в работу» в листы печатного формата и умножаем на цену листа.
-        return ($paperPackWork / ((float) $size->count_1 / 2)) * $sale1Page;
+        // Здесь paperPackWork уже выражен в листах, поэтому просто умножаем на цену листа.
+        return $paperPackWork * $sale1Page;
     }
 
     private function calculatePrintPagesCirculation(OrderCalculationInput $input, ?Size $size): float
@@ -235,20 +253,36 @@ class OrderCalculator
 
     private function resolveSale1Paper(OrderCalculationInput $input, ?Size $size): float
     {
-        if (!$size || !$input->typePaperId) {
+        if (!$input->paperPriceId) {
             return 0;
         }
 
-        $category = Category::query()->find($input->typePaperId);
+        $paperPrice = PaperPrice::query()->find($input->paperPriceId);
+        if ($paperPrice) {
+            $salePrice = (float) ($paperPrice->sale_price ?? 0);
 
-        if (!$category) {
+            if ($salePrice <= 0 && (float) $paperPrice->base_price > 0) {
+                $salePrice = (float) $paperPrice->base_price * (1 + ((float) $paperPrice->markup_percent / 100));
+            }
+
+            if ($salePrice > 0) {
+                return $salePrice;
+            }
+        }
+
+        if (!$size) {
+            return 0;
+        }
+
+        // Легаси-фолбэк оставлен для старых заказов, где в поле еще лежит старый id категории.
+        $category = Category::query()->find($input->paperPriceId);
+        if (! $category) {
             return 0;
         }
 
         $slugTypePaper = (string) $category->slug;
         $paperPrefix = '';
 
-        // Собираем slug сырья из типа бумаги + граммовки + формата листа.
         foreach ((array) config('calculator.paper_slug_map', []) as $contains => $prefix) {
             if (str_contains($slugTypePaper, (string) $contains)) {
                 $paperPrefix = (string) $prefix;
@@ -272,11 +306,9 @@ class OrderCalculator
 
         $suffix = config("calculator.size_paper_suffix_map.{$size->size_paper}");
         if ($suffix) {
-            // Сначала пробуем размеро-специфичный прайс, как в старом Excel.
             $candidateSlugs[] = $baseSlug.'-'.$suffix;
         }
 
-        // Фолбэк: если нет прайса под конкретный формат листа, берем общий прайс бумаги.
         $candidateSlugs[] = $baseSlug;
 
         foreach ($candidateSlugs as $slug) {
@@ -307,7 +339,9 @@ class OrderCalculator
             if ($input->paperCirculation <= $size) {
                 $property = 'circulation_'.$size;
 
-                return (float) ($ofset->{$property} ?? 0);
+                $price = (float) ($ofset->{$property} ?? 0);
+
+                return max($price, (float) config('calculator.print.offset_minimum', 3000));
             }
         }
 
@@ -379,7 +413,7 @@ class OrderCalculator
             ->first()?->price ?? 0);
 
         // Материалы: стоимость пленки на 1 изделие.
-        $membraneMaterials = $this->calculateMembraneCost($size, $sale);
+        $membraneMaterials = $this->calculateMembraneCost($size, $sale, $printPagesCirculation);
 
         // Работы: приладка + работа по листам.
         $price1 = (float) (Product::query()->find(config('calculator.products.lamination_prebuild'))?->price ?? 0);
@@ -402,15 +436,16 @@ class OrderCalculator
         ];
     }
 
-    private function calculateMembraneCost(Size $size, float $sale): float
+    private function calculateMembraneCost(Size $size, float $sale, float $printPagesCirculation): float
     {
-        if (!$size->membrane || !$size->length_membrane) {
+        if (!$size->membrane || !$size->length_membrane || $printPagesCirculation <= 0) {
             return 0;
         }
 
         $m2 = ((float) $size->membrane / 1000) * (float) $size->length_membrane;
 
-        return $m2 * $sale;
+        // Цена пленки задается за м2, поэтому умножаем на площадь листа и на количество листов.
+        return $m2 * $sale * $printPagesCirculation;
     }
 
     private function calculateFelling(OrderCalculationInput $input, ?Size $size, float $printPagesCirculation, float $sale1Channel): array
@@ -464,27 +499,41 @@ class OrderCalculator
         return ceil($input->paperCirculation / $stepQuantity) * $stepPrice;
     }
 
-    private function calculateAssemblyCirculation(OrderCalculationInput $input, ?Size $size, ?Group $group): float
+    private function calculateAssemblyBreakdown(OrderCalculationInput $input, ?Size $size, ?Group $group): array
     {
         if (!$size || !$group || $input->paperCirculation <= 0) {
-            return 0;
+            return [
+                'gluing' => 0.0,
+                'cord_cutting' => 0.0,
+                'insert' => 0.0,
+                'sleeve' => 0.0,
+                'glue_extra' => 0.0,
+                'total' => 0.0,
+            ];
         }
 
         $sleeve = ((float) $size->count_blank === 1.0)
             ? (float) ($group->handle_1 ?? 0)
             : (float) ($group->handle_2 ?? 0);
 
-        // Базовая сборка 1 пакета по группе формы.
-        $basePerUnit =
-            (float) ($group->bottom ?? 0) +
-            (float) ($group->sidewall ?? 0) +
-            (float) ($group->boking_gluing ?? 0) +
-            (float) ($group->cutting_cord_2 ?? 0) +
-            $sleeve;
-
         $glueExtra = (float) (config("calculator.glue_per_format.{$size->type}") ?? 0);
+        $circulation = $input->paperCirculation;
 
-        return ($basePerUnit + $glueExtra) * $input->paperCirculation;
+        // Разносим сборку на отдельные операции, чтобы названия соответствовали смыслу.
+        $gluing = ((float) ($group->bottom ?? 0) + (float) ($group->boking_gluing ?? 0)) * $circulation;
+        $cordCutting = (float) ($group->cutting_cord_2 ?? 0) * $circulation;
+        $insert = (float) ($group->sidewall ?? 0) * $circulation;
+        $sleeveCost = $sleeve * $circulation;
+        $glueExtraCost = $glueExtra * $circulation;
+
+        return [
+            'gluing' => $gluing,
+            'cord_cutting' => $cordCutting,
+            'insert' => $insert,
+            'sleeve' => $sleeveCost,
+            'glue_extra' => $glueExtraCost,
+            'total' => $gluing + $cordCutting + $insert + $sleeveCost + $glueExtraCost,
+        ];
     }
 
     private function calculateHandle(OrderCalculationInput $input, ?Size $size, ?Group $group): array
@@ -654,7 +703,7 @@ class OrderCalculator
         array $laminationData,
         array $fellingData,
         float $assemblyResult,
-        float $assemblyResultCirculation,
+        array $assemblyBreakdown,
         array $handleData,
         float $packagesResult,
         float $resultMaterials,
@@ -668,7 +717,7 @@ class OrderCalculator
             'Тип размера' => $size?->type ?? '-',
             'Формат печати' => $sizeFormat !== '' ? $sizeFormat : '-',
             'Тираж' => $input->paperCirculation,
-            'Тип бумаги ID' => $input->typePaperId ?? '-',
+            'Бумага ID' => $input->paperPriceId ?? '-',
             'Тип заказа' => $input->typeOrder ?? '-',
             'Опции печати' => $this->implodeOrDash($input->printOptions),
             'Тип печати' => $this->implodeOrDash($input->printType),
@@ -695,7 +744,11 @@ class OrderCalculator
             'ЛАМИНАЦИЯ_Сумма: '.$this->fmt((float) ($laminationData['total'] ?? 0)),
             'ВЫРУБКА_Сумма: '.$this->fmt((float) ($fellingData['total'] ?? 0)),
             'РЕЗКА_Сумма: '.$this->fmt($assemblyResult),
-            'СКЛЕЙКА_Сумма: '.$this->fmt($assemblyResultCirculation),
+            'СКЛЕЙКА_Сумма: '.$this->fmt((float) ($assemblyBreakdown['gluing'] ?? 0)),
+            'ШНУР_РЕЗКА_Сумма: '.$this->fmt((float) ($assemblyBreakdown['cord_cutting'] ?? 0)),
+            'ВКЛАДКИ_Сумма: '.$this->fmt((float) ($assemblyBreakdown['insert'] ?? 0)),
+            'РУКАВ_Сумма: '.$this->fmt((float) ($assemblyBreakdown['sleeve'] ?? 0)),
+            'КЛЕЙ_Сумма: '.$this->fmt((float) ($assemblyBreakdown['glue_extra'] ?? 0)),
             'РУЧКИ_Сумма: '.$this->fmt((float) ($handleData['total'] ?? 0)),
             'КОРОБКИ_Сумма: '.$this->fmt($packagesResult),
             'ИТОГО_Себестоимость: '.$this->fmt($subtotal),
@@ -708,6 +761,11 @@ class OrderCalculator
             'ПЕЧАТЬ_ЛистовТиража: '.$this->fmt($printPagesCirculation),
             '',
             '[РАЗБИВКА ПО СОСТАВУ]',
+            'СКЛЕЙКА_Базовая: '.$this->fmt((float) ($assemblyBreakdown['gluing'] ?? 0)),
+            'ШНУР_РЕЗКА: '.$this->fmt((float) ($assemblyBreakdown['cord_cutting'] ?? 0)),
+            'ВКЛАДКИ: '.$this->fmt((float) ($assemblyBreakdown['insert'] ?? 0)),
+            'РУКАВ: '.$this->fmt((float) ($assemblyBreakdown['sleeve'] ?? 0)),
+            'КЛЕЙ_ДОП: '.$this->fmt((float) ($assemblyBreakdown['glue_extra'] ?? 0)),
             'ЛАМИНАЦИЯ_Материалы: '.$this->fmt((float) ($laminationData['materials'] ?? 0)),
             'ЛАМИНАЦИЯ_Работы: '.$this->fmt((float) ($laminationData['works'] ?? 0)),
             'ВЫРУБКА_Материалы: '.$this->fmt((float) ($fellingData['materials'] ?? 0)),
@@ -723,11 +781,18 @@ class OrderCalculator
         ]);
 
         $formulas = [
-            'paper_pack_work' => '((тираж / 100) * waste_percent) + (print_prebuild / 2) = '
-                .$this->fmt((($input->paperCirculation / 100) * (float) config('calculator.paper.waste_percent', 108)))
+            'paper_pack_work' => 'count_paper + (print_prebuild / 2) = '
+                .$this->fmt($countPaper)
                 .' + '.$this->fmt($printPrebuild / 2).' = '.$this->fmt($paperPackWork),
-            'paper_result' => '(paper_pack_work / (count_1 / 2)) * sale_1_page = '.$this->fmt($paperResult),
+            'paper_result' => 'paper_pack_work * sale_1_page = '.$this->fmt($paperPackWork).' * '.$this->fmt($sale1Page).' = '.$this->fmt($paperResult),
             'print_pages_circulation' => 'по типоразмеру = '.$this->fmt($printPagesCirculation),
+            'assembly_breakdown' => 'склейка + резка шнура + вкладки + рукав + клей = '
+                .$this->fmt((float) ($assemblyBreakdown['gluing'] ?? 0)).' + '
+                .$this->fmt((float) ($assemblyBreakdown['cord_cutting'] ?? 0)).' + '
+                .$this->fmt((float) ($assemblyBreakdown['insert'] ?? 0)).' + '
+                .$this->fmt((float) ($assemblyBreakdown['sleeve'] ?? 0)).' + '
+                .$this->fmt((float) ($assemblyBreakdown['glue_extra'] ?? 0)).' = '
+                .$this->fmt((float) ($assemblyBreakdown['total'] ?? 0)),
             'lamination_total' => 'materials + works = '
                 .$this->fmt((float) ($laminationData['materials'] ?? 0)).' + '
                 .$this->fmt((float) ($laminationData['works'] ?? 0)).' = '

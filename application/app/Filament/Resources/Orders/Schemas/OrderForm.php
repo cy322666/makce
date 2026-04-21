@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Orders\Schemas;
 use App\Domain\Orders\OrderCalculationInput;
 use App\Domain\Orders\OrderCalculator;
 use App\Models\Category;
+use App\Models\PaperPrice;
 use App\Models\Ofset;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
@@ -253,17 +254,19 @@ class OrderForm
                         ->required(),
 
                     Select::make('type_paper')
-                        ->label('Тип бумаги')
+                        ->label('Бумага')
+                        ->searchable()
+                        ->preload()
                         ->reactive()
-                        ->options(Category::getChildrens('Тип бумаги')->pluck('name', 'id')->toArray()),
+                        ->options(fn (): array => static::paperPriceOptions()),
 
-//                    TextEntry::make('sale_1_page')
-//                        ->label('Стоимость 1 листа (база)')
-//                        ->dehydrated()
-//                        ->weight(FontWeight::Bold)
-//                        ->fontFamily(FontFamily::Mono)
-//                        ->state(fn (Get $get) => static::metric('sale_1_page', $get))
-//                        ->size(TextSize::Large),
+                    TextEntry::make('sale_1_page')
+                        ->label('Стоимость 1 листа (база)')
+                        ->dehydrated()
+                        ->weight(FontWeight::Bold)
+                        ->fontFamily(FontFamily::Mono)
+                        ->state(fn (Get $get) => static::metric('sale_1_page', $get))
+                        ->size(TextSize::Large),
 
                     Select::make('type_order')
                         ->label('Тип заказа')
@@ -273,13 +276,13 @@ class OrderForm
                             'agency' => 'Агенство',//75
                         ]),
 
-//                    TextEntry::make('sale_1_channel')
-//                        ->label('Стоимость 1м канала')
-//                        ->dehydrated()
-//                        ->weight(FontWeight::Bold)
-//                        ->fontFamily(FontFamily::Mono)
-//                        ->state(fn (Get $get) => static::metric('sale_1_channel', $get))
-//                        ->size(TextSize::Large),
+                    TextEntry::make('sale_1_channel')
+                        ->label('Стоимость 1м канала')
+                        ->dehydrated()
+                        ->weight(FontWeight::Bold)
+                        ->fontFamily(FontFamily::Mono)
+                        ->state(fn (Get $get) => static::metric('sale_1_channel', $get))
+                        ->size(TextSize::Large),
 
                     CheckboxList::make('print_options')
                         ->label('Основное')
@@ -418,6 +421,36 @@ class OrderForm
         ];
     }
 
+    /**
+     * В заказе бумага выбирается из отдельного прайса.
+     * Так виден именно список строк, которые участвуют в расчете.
+     */
+    private static function paperPriceOptions(): array
+    {
+        return PaperPrice::query()
+            ->orderBy('group_name')
+            ->orderBy('sheet_format')
+            ->orderBy('title')
+            ->get()
+            ->groupBy(fn (PaperPrice $paper): string => (string) ($paper->group_name ?: 'Без группы'))
+            ->map(static function ($items): array {
+                return $items
+                    ->mapWithKeys(static function (PaperPrice $paper): array {
+                        $salePrice = (float) ($paper->sale_price ?? 0);
+
+                        if ($salePrice <= 0 && (float) $paper->base_price > 0) {
+                            $salePrice = (float) $paper->base_price * (1 + ((float) $paper->markup_percent / 100));
+                        }
+
+                        $label = trim($paper->title.' — '.number_format($salePrice, 2, '.', ' '));
+
+                        return [$paper->id => $label];
+                    })
+                    ->all();
+            })
+            ->all();
+    }
+
 //    public static function getOptionResultComponents(): array
 //    {
 //        return [];
@@ -444,4 +477,5 @@ class OrderForm
 
         return $calculator->calculate(OrderCalculationInput::fromGet($get));
     }
+
 }

@@ -7,7 +7,6 @@ use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Form;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -18,7 +17,7 @@ use Illuminate\Support\Str;
 
 class CategoryForm
 {
-    public static function configure(Form $schema): Form
+    public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
