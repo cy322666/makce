@@ -35,6 +35,9 @@ class SizesTable
                     ->label('Размер заготовки'),
                 TextColumn::make('size_paper')
                     ->label('Размер бумаги'),
+                TextColumn::make('paper_format')
+                    ->label('Формат бумаги')
+                    ->sortable(),
                 TextColumn::make('number')
                     ->label('Номер'),
                 TextColumn::make('package')

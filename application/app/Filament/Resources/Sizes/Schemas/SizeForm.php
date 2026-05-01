@@ -89,6 +89,12 @@ class SizeForm
                 ->label('Размер заготовки'),
             TextInput::make('size_paper')
                 ->label('Размер бумаги'),
+            Select::make('paper_format')
+                ->label('Формат бумаги')
+                ->options([
+                    'A' => 'A',
+                    'B' => 'B',
+                ]),
             TextInput::make('number')
                 ->label('Номер'),
             TextInput::make('package')

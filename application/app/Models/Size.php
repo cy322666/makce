@@ -16,6 +16,7 @@ class Size extends Model
         'count_1',
         'count_blank',
         'size_paper',
+        'paper_format',
         'package',
         'membrane',
     ];
